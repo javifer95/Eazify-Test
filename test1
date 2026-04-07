@@ -1,34 +1,99 @@
-// Import Express.js
-const express = require('express');
+// server.js
+import express from "express";
+import fetch from "node-fetch";
 
-// Create an Express app
 const app = express();
-
-// Middleware to parse JSON bodies
 app.use(express.json());
 
-// Set port and verify_token
-const port = process.env.PORT || 3000;
-const verifyToken = process.env.VERIFY_TOKEN;
+const VERIFY_TOKEN = "rer_burgers_token"; // you choose this
+const WA_TOKEN = process.env.WA_TOKEN;    // from Meta dashboard
+const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
-// Route for GET requests
-app.get('/', (req, res) => {
-  const { 'hub.mode': mode, 'hub.challenge': challenge, 'hub.verify_token': token } = req.query;
-
-  if (mode === 'subscribe' && token === verifyToken) {
-    console.log('WEBHOOK VERIFIED');
-    res.status(200).send(challenge);
+// Meta calls this to verify your webhook
+app.get("/webhook", (req, res) => {
+  if (req.query["hub.verify_token"] === VERIFY_TOKEN) {
+    res.send(req.query["hub.challenge"]);
   } else {
-    res.status(403).end();
+    res.sendStatus(403);
   }
 });
 
-// Route for POST requests
-app.post('/', (req, res) => {
-  const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
-  console.log(`\n\nWebhook received ${timestamp}\n`);
-  console.log(JSON.stringify(req.body, null, 2));
-  res.status(200).end();
+// This receives every WhatsApp message
+app.post("/webhook", async (req, res) => {
+  const message = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  if (!message || message.type !== "text") return res.sendStatus(200);
+
+  const userText = message.text.body;
+  const userPhone = message.from;
+
+  const reply = await askClaude(userText);
+  await sendWhatsApp(userPhone, reply);
+
+  res.sendStatus(200);
+});
+
+async function askClaude(userMessage) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 300,
+      system: `Eres el asistente virtual de RER Burgers, un restaurante de hamburguesas en Guatemala City (Spazio).
+
+HORARIOS:
+- Lunes a Miércoles: 11:00 AM – 8:00 PM
+- Jueves: 12:00 PM – 9:00 PM
+- Viernes: 11:00 AM – 8:00 PM
+- Sábado: 12:00 PM – 9:00 PM
+- Domingo: 11:30 AM – 6:00 PM
+
+MENÚ (precios en quetzales):
+- The Melt: Q116
+- RER's Rockstars Sampler: Q135
+- Shroom Burger: Q116
+- Walker: Q114
+- The All in Burger: Q110
+- Steak Burger: Q100
+- La Francesa: Q115
+- The Tearmaker: Q114
+- Turkey Melt: Q85
+- Mini Slider: Q70
+- Egg Classic Burger: Q114
+- Crispy Chicken: Q116
+
+También puedes ordenar por Uber Eats.
+
+Responde siempre en español, de forma amigable y breve. Si el cliente quiere ordenar, guíalo a través del menú y pregunta qué desea. Si no puedes ayudar con algo, pídeles que llamen al +502 3569-5505.`,
+      messages: [{ role: "user", content: userMessage }]
+    })
+  });
+  const data = await response.json();
+  return data.content[0].text;
+}
+
+async function sendWhatsApp(to, text) {
+  await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${WA_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "text",
+      text: { body: text }
+    })
+  });
+}
+
+app.listen(3000, () => console.log("RER bot running on port 3000"));
 });
 
 // Start the server
