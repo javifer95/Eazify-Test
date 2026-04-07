@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 
 const VERIFY_TOKEN = "rer_burgers_token"; // you choose this
-const WA_TOKEN = process.env.WA_TOKEN;    // from Meta dashboard
+const WA_TOKEN = process.env.EAAXWYrYSzJIBRE8EqmqiJwdvj8IlwL1RB4G14ic9U5V4SyZAOd72lZCAmyDj1Ie3jtyAWZBnL47PMxfbZBPA3oXmddiVMZAmHgQSPhkkOGLt0gXEWEmjZAjvzeLJmu06OjdAEu4rAt6ZCdF6sZBG4CG85e9qddwrZBGOlQW5C8jCX0taUMGa5gGlOUSCMpEzAgiWxyesxR12HtdcZBYRVzHg1M3bCF2jAChHKHjdAxb6tKN6ZAA4ZBDSBPU0ksSmLw3Hb7hYf6w478fj42VDmXiFpAZAZA41QZD;    // from Meta dashboard
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
